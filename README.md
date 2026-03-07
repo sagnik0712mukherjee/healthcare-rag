@@ -22,7 +22,7 @@ A production-style Retrieval Augmented Generation (RAG) application for healthca
 User Query (Streamlit UI)
         |
         v
-FastAPI Backend (/api)
+FastAPI Backend (/src/api)
         |
         |-- Query Cache Check (PostgreSQL)
         |       If cached: return immediately
@@ -77,77 +77,80 @@ Response returned to user
 ```
 healthcare-rag/
 |
-|-- streamlit.py                  # Streamlit frontend (must be in root)
-|-- requirements.txt              # All Python dependencies
-|-- .env.example                  # Template for environment variables
-|-- railway.json                  # Railway deployment config
-|-- Procfile                      # Process definition for Railway/Heroku
-|-- README.md                     # This file
+|-- streamlit.py                      # Streamlit frontend (must stay in root)
+|-- requirements.txt                  # All Python dependencies
+|-- .env.example                      # Template for environment variables
+|-- railway.json                      # Railway deployment config
+|-- Procfile                          # Process definition for Railway
+|-- README.md                         # This file
 |
-|-- api/                          # FastAPI backend
+|-- config/                           # Application configuration (outside src)
 |   |-- __init__.py
-|   |-- main.py                   # App factory, startup, CORS
-|   |-- routes.py                 # All API route handlers
-|   |-- schemas.py                # Pydantic request/response models
+|   |-- settings.py                   # Reads all settings from .env
 |
-|-- config/                       # Application configuration
+|-- data/                             # Dataset files (not committed to git)
+|   |-- images/                       # Medical images (.webp format)
+|   |-- processed/                    # Chunked + metadata JSON files
+|   |-- raw/                          # Original MultiCaRe .parquet/.csv files
+|
+|-- src/                              # All application source code lives here
 |   |-- __init__.py
-|   |-- settings.py               # Reads all settings from .env
-|
-|-- ingestion/                    # Data loading and indexing pipeline
-|   |-- __init__.py
-|   |-- load_cases.py             # Loads cases.parquet
-|   |-- load_images.py            # Loads captions_and_labels.csv
-|   |-- chunking.py               # Splits case text into chunks
-|   |-- embeddings.py             # Generates OpenAI embeddings
-|   |-- build_faiss_index.py      # Runs the full ingestion pipeline
-|
-|-- rag/                          # Core RAG logic
-|   |-- __init__.py
-|   |-- retriever.py              # FAISS similarity search
-|   |-- generator.py              # OpenAI prompt + response
-|   |-- pipeline.py               # Orchestrates full RAG flow
-|
-|-- memory/                       # Conversation memory
-|   |-- __init__.py
-|   |-- short_term_memory.py      # In-memory session history
-|   |-- long_term_memory.py       # DB-backed persistent memory
-|
-|-- guardrails/                   # Safety filters
-|   |-- __init__.py
-|   |-- input_guardrails.py       # Blocks unsafe input queries
-|   |-- output_guardrails.py      # Cleans output, adds disclaimer
-|
-|-- monitoring/                   # Token usage tracking
-|   |-- __init__.py
-|   |-- token_tracker.py          # Budget checks
-|   |-- usage_logger.py           # Logs usage to DB
-|
-|-- caching/                      # Query result caching
-|   |-- __init__.py
-|   |-- query_cache.py            # Hash-based response cache
-|
-|-- evaluation/                   # RAG quality evaluation
-|   |-- __init__.py
-|   |-- ragas_eval.py             # RAGAS metrics runner
-|
-|-- database/                     # Database layer
-|   |-- __init__.py
-|   |-- db.py                     # Engine, session, get_db()
-|   |-- models.py                 # SQLAlchemy ORM models
-|
-|-- utils/                        # Shared helper functions
-|   |-- __init__.py
-|   |-- helpers.py
-|
-|-- vectorstore/                  # FAISS index files (generated)
-|   |-- __init__.py
-|   |-- faiss_index/              # Created by build_faiss_index.py
-|
-|-- data/                         # Dataset files (not committed to git)
-    |-- raw/                      # Original MultiCaRe .parquet/.csv files
-    |-- images/                   # Medical images (.webp format)
-    |-- processed/                # Chunked + metadata JSON files
+|   |
+|   |-- api/                          # FastAPI backend
+|   |   |-- __init__.py
+|   |   |-- main.py                   # App factory, startup, CORS
+|   |   |-- routes.py                 # All API route handlers
+|   |   |-- schemas.py                # Pydantic request/response models
+|   |
+|   |-- caching/                      # Query result caching
+|   |   |-- __init__.py
+|   |   |-- query_cache.py            # Hash-based response cache in PostgreSQL
+|   |
+|   |-- database/                     # Database layer
+|   |   |-- __init__.py
+|   |   |-- db.py                     # Engine, session factory, get_db()
+|   |   |-- models.py                 # SQLAlchemy ORM table definitions
+|   |
+|   |-- evaluation/                   # RAG quality evaluation
+|   |   |-- __init__.py
+|   |   |-- ragas_eval.py             # RAGAS metrics runner
+|   |
+|   |-- guardrails/                   # Safety filters
+|   |   |-- __init__.py
+|   |   |-- input_guardrails.py       # Blocks unsafe input queries
+|   |   |-- output_guardrails.py      # Cleans output, appends disclaimer
+|   |
+|   |-- ingestion/                    # Data loading and indexing pipeline
+|   |   |-- __init__.py
+|   |   |-- load_cases.py             # Loads cases.parquet
+|   |   |-- load_images.py            # Loads captions_and_labels.csv
+|   |   |-- chunking.py               # Splits case text into chunks
+|   |   |-- embeddings.py             # Generates OpenAI embeddings
+|   |   |-- build_faiss_index.py      # Runs the full ingestion pipeline
+|   |
+|   |-- memory/                       # Conversation memory
+|   |   |-- __init__.py
+|   |   |-- short_term_memory.py      # In-memory session history
+|   |   |-- long_term_memory.py       # DB-backed persistent memory
+|   |
+|   |-- monitoring/                   # Token usage tracking
+|   |   |-- __init__.py
+|   |   |-- token_tracker.py          # Budget checks per user
+|   |   |-- usage_logger.py           # Logs usage to PostgreSQL
+|   |
+|   |-- rag/                          # Core RAG logic
+|   |   |-- __init__.py
+|   |   |-- retriever.py              # FAISS similarity search
+|   |   |-- generator.py              # OpenAI prompt + response generation
+|   |   |-- pipeline.py               # Orchestrates the full RAG flow
+|   |
+|   |-- utils/                        # Shared helper functions
+|   |   |-- __init__.py
+|   |   |-- helpers.py                # Text cleaning, risk scoring, timestamps
+|   |
+|   |-- vectorstore/                  # FAISS index files (auto-generated)
+|       |-- __init__.py
+|       |-- faiss_index/              # Created by build_faiss_index.py
 ```
 
 ---
@@ -182,14 +185,13 @@ cp .env.example .env
 # Open .env and fill in your actual values:
 #   - OPENAI_API_KEY
 #   - DATABASE_URL
-#   - SECRET_KEY
 ```
 
 ### 5. Set Up the Database
 
 ```bash
 # Make sure PostgreSQL is running locally, then:
-python -c "from database.db import create_tables; create_tables()"
+python -c "from src.database.db import create_tables; create_tables()"
 ```
 
 ### 6. Download the MultiCaRe Dataset
@@ -213,13 +215,13 @@ mc.download_dataset()
 This step reads the dataset, creates text chunks, generates embeddings, and saves the FAISS index. It will take several minutes depending on how much data you ingest.
 
 ```bash
-python ingestion/build_faiss_index.py
+python src/ingestion/build_faiss_index.py
 ```
 
 ### 8. Run the FastAPI Backend
 
 ```bash
-uvicorn api.main:app --reload --port 8000
+uvicorn src.api.main:app --reload --port 8000
 # API docs available at: http://localhost:8000/docs
 ```
 
@@ -309,7 +311,7 @@ Each user has a token usage limit (default: 100,000 tokens, approximately $0.02 
 Run RAG quality evaluation using RAGAS:
 
 ```bash
-python evaluation/ragas_eval.py
+python src/evaluation/ragas_eval.py
 ```
 
 This produces scores for:
@@ -332,8 +334,7 @@ Dataset License: CC-BY-NC-SA
 
 ---
 
-## ✍️ Author
+## Author
+
 Created with passion by **Sagnik Mukherjee**.
 - [GitHub Profile](https://github.com/sagnik0712mukherjee)
-
----
