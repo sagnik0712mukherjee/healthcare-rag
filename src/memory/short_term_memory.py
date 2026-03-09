@@ -43,6 +43,7 @@
 import threading
 from collections import defaultdict
 from loguru import logger
+from typing import Optional
 
 from config.settings import settings
 
@@ -68,6 +69,9 @@ from config.settings import settings
 # ------------------------------------------------------------------------------
 
 _session_store: dict[str, list[dict]] = defaultdict(list)
+
+# Stores pinned chunk_ids per session — set on Turn 1, reused on Turn 2+
+_pinned_chunks_store: dict[str, list[str]] = {}
 
 # A threading lock to prevent race conditions in multi-threaded FastAPI
 _store_lock = threading.Lock()
@@ -297,3 +301,46 @@ class ShortTermMemory:
         """
         with _store_lock:
             return len(_session_store)
+
+    def get_pinned_chunks(self, session_id: str) -> list[str]:
+        """
+        Returns the chunk_ids pinned from Turn 1 of this session.
+
+        Purpose:
+            On Turn 2+, the pipeline uses these IDs to re-inject the same
+            source chunks that were retrieved in Turn 1, keeping follow-up
+            questions anchored to the same patients/cases.
+
+        Returns:
+            list[str]: List of chunk_id strings, or [] if Turn 1 hasn't run yet.
+        """
+        with _store_lock:
+            return list(_pinned_chunks_store.get(session_id, []))
+
+    def set_pinned_chunks(self, session_id: str, chunk_ids: list[str]) -> None:
+        """
+        Stores chunk_ids from Turn 1 so future turns can re-use them.
+
+        Purpose:
+            Called by pipeline.py after the first retrieval in a session.
+            Ensures follow-up questions ("what was their age?", "what imaging
+            did they use?") stay anchored to the same source cases.
+
+        Parameters:
+            session_id (str): The session to pin chunks for.
+            chunk_ids (list[str]): The chunk_ids returned by retrieval on Turn 1.
+        """
+        with _store_lock:
+            _pinned_chunks_store[session_id] = chunk_ids
+
+    def clear_session(self, session_id: str) -> None:
+        """
+        Clears all memory (conversation history + pinned chunks) for a session.
+
+        Purpose:
+            Called when the user starts a new conversation so old context
+            doesn't bleed into the new session.
+        """
+        with _store_lock:
+            _session_store.pop(session_id, None)
+            _pinned_chunks_store.pop(session_id, None)

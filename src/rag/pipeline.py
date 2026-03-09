@@ -75,6 +75,9 @@ class RAGRequest:
     db: Session
     top_k: int = None
     source_filter: Optional[str] = None
+    pinned_chunk_ids: list = field(
+        default_factory=list
+    )  # chunk_ids pinned from prior turn
 
     def __post_init__(self):
         # Apply default top_k from settings if not provided
@@ -255,16 +258,22 @@ def run_rag_pipeline(request: RAGRequest) -> RAGResponse:
     # ==========================================================================
     # STEP 5: RETRIEVE RELEVANT CHUNKS
     # ==========================================================================
-    # Search the FAISS index for the most relevant clinical case chunks
-    # and image captions for this query.
+    # On Turn 1: normal FAISS retrieval. We store the returned chunk_ids in
+    # short-term memory so Turn 2+ can re-use the same source material.
+    # On Turn 2+: we fetch the pinned chunks from the previous turn AND do a
+    # fresh retrieval, then merge them (pinned chunks take priority).
 
     logger.info(f"Step 5/11: Retrieving top-{request.top_k} chunks from FAISS...")
+
+    # Pull pinned chunk_ids stored by the previous turn in this session
+    pinned_chunk_ids = memory.get_pinned_chunks(session_id=request.session_id)
 
     try:
         retrieved_chunks = retrieve(
             query=request.query,
             top_k=request.top_k,
             source_filter=request.source_filter,
+            pinned_chunk_ids=pinned_chunk_ids,
         )
     except Exception as error:
         logger.error(f"Retrieval failed: {error}")
@@ -278,6 +287,18 @@ def run_rag_pipeline(request: RAGRequest) -> RAGResponse:
         )
 
     logger.info(f"Retrieved {len(retrieved_chunks)} chunks.")
+
+    # On Turn 1, pin these chunk_ids so follow-up questions stay on-topic
+    if not pinned_chunk_ids and retrieved_chunks:
+        chunk_ids_to_pin = [
+            c["chunk_id"] for c in retrieved_chunks if c.get("chunk_id")
+        ]
+        memory.set_pinned_chunks(
+            session_id=request.session_id, chunk_ids=chunk_ids_to_pin
+        )
+        logger.info(
+            f"Pinned {len(chunk_ids_to_pin)} chunk_ids for session {request.session_id}"
+        )
 
     # ==========================================================================
     # STEP 6: GENERATE RESPONSE

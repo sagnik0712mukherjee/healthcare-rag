@@ -38,15 +38,26 @@ from config.settings import settings
 # max_overflow=10: allow up to 10 additional connections in bursts.
 # ------------------------------------------------------------------------------
 
+# SQLite does not support connection pooling arguments (pool_size, max_overflow).
+# We detect the DB type from the URL and pass the right kwargs accordingly.
+_is_sqlite = settings.database_url.startswith("sqlite")
+
 engine = create_engine(
     url=settings.database_url,
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10,
     echo=settings.is_development,
-    # echo=True prints every SQL statement to the console.
-    # We only do this in development to help with debugging.
-    # In production this is False to avoid log spam.
+    # SQLite needs connect_args={"check_same_thread": False} for FastAPI's
+    # multi-threaded request handling. Postgres doesn't need this.
+    **(
+        {
+            "connect_args": {"check_same_thread": False},
+        }
+        if _is_sqlite
+        else {
+            "pool_pre_ping": True,
+            "pool_size": 5,
+            "max_overflow": 10,
+        }
+    ),
 )
 
 
@@ -198,7 +209,7 @@ def create_tables() -> None:
 # ------------------------------------------------------------------------------
 
 
-def check_db_connection() -> bool:
+def check_db_connection(db=None) -> bool:
     """
     Checks whether the application can connect to the PostgreSQL database.
 

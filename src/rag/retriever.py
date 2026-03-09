@@ -108,6 +108,7 @@ def retrieve(
     query: str,
     top_k: Optional[int] = None,
     source_filter: Optional[str] = None,
+    pinned_chunk_ids: list = None,
 ) -> list[dict]:
     """
     Finds the most relevant chunks for a user query using FAISS vector search.
@@ -256,6 +257,38 @@ def retrieve(
         # Stop once we have enough results after filtering
         if len(results) >= top_k:
             break
+
+    # If pinned_chunk_ids were provided (Turn 2+), find those chunks in metadata
+    # and prepend them so the LLM always sees the Turn 1 context first.
+    if pinned_chunk_ids:
+        pinned_results = []
+        existing_ids = {r["chunk_id"] for r in results}
+        for i, chunk in enumerate(_chunk_metadata):
+            if (
+                chunk.get("chunk_id") in pinned_chunk_ids
+                and chunk.get("chunk_id") not in existing_ids
+            ):
+                pinned_results.append(
+                    {
+                        "chunk_text": chunk.get("chunk_text", ""),
+                        "similarity_score": 1.0,  # treat pinned as maximally relevant
+                        "source": chunk.get("source", "unknown"),
+                        "chunk_id": chunk.get("chunk_id", ""),
+                        "case_id": chunk.get("case_id", None),
+                        "patient_age": chunk.get("patient_age", None),
+                        "patient_gender": chunk.get("patient_gender", None),
+                        "chunk_index": chunk.get("chunk_index", 0),
+                        "total_chunks": chunk.get("total_chunks", 1),
+                        "image_id": chunk.get("image_id", None),
+                        "image_type": chunk.get("image_type", None),
+                        "image_subtype": chunk.get("image_subtype", None),
+                        "labels": chunk.get("labels", []),
+                        "file_name": chunk.get("file_name", None),
+                    }
+                )
+        # Pinned chunks go first, then fresh retrieval fills remaining slots
+        results = (pinned_results + results)[:top_k]
+        logger.info(f"Injected {len(pinned_results)} pinned chunks from Turn 1.")
 
     logger.info(
         f"Retrieved {len(results)} chunks "

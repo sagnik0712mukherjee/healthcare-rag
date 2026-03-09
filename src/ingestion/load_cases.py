@@ -187,7 +187,7 @@ def _find_text_column(dataframe: pd.DataFrame) -> str:
         ValueError: If no recognizable text column is found.
     """
     # Try these column names in order of preference
-    candidates = ["case_text", "text", "content", "clinical_case"]
+    candidates = ["case_text", "text", "content", "clinical_case", "cases"]
 
     for candidate in candidates:
         if candidate in dataframe.columns:
