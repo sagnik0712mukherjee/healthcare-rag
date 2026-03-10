@@ -1,27 +1,57 @@
+# ==============================================================================
+# HEALTHCARE RAG SYSTEM - PYTHON DEPENDENCIES
+# ==============================================================================
+
+# Web Framework
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
+
+# Frontend
 streamlit
+
+# Database
 sqlalchemy
 psycopg2-binary
 alembic
+
+# Data Validation
 pydantic
 pydantic-settings
+email-validator
+
+# OpenAI
 openai
+
+# Vector Store
 faiss-cpu
+
+# Data Processing
 pandas
 pyarrow
 numpy
+
+# Text Processing
 tiktoken
+
+# HTTP Clients
 httpx
 requests
+
+# Environment Variables
 python-dotenv
+
+# Evaluation
 ragas
-deepeval
-boto3
-passlib
-python-jose
+
+# Security
+passlib[bcrypt]
+python-jose[cryptography]
+
+# Utilities
 python-dateutil
 tqdm
 loguru
+
+# Image Processing
 Pillow
