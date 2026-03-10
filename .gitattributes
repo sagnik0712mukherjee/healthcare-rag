@@ -2,3 +2,6 @@
 *.csv filter=lfs diff=lfs merge=lfs -text
 *.bin filter=lfs diff=lfs merge=lfs -text
 *.json filter=lfs diff=lfs merge=lfs -text
+vectorstore/faiss_index/index.bin filter=lfs diff=lfs merge=lfs -text
+vectorstore/faiss_index/metadata.json filter=lfs diff=lfs merge=lfs -text
+vectorstore/faiss_index/summary.json filter=lfs diff=lfs merge=lfs -text

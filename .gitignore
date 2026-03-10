@@ -1,5 +1,6 @@
-echo "data/raw/images/" >> .gitignore
-echo "data/processed/" >> .gitignore
-echo "" >> .gitignore
-echo "*.db" >> .gitignore
-echo ".env" >> .gitignore
+data/raw/images/
+data/processed/
+*.db
+.env
+__pycache__/
+*.pyc
