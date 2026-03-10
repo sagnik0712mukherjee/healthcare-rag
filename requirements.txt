@@ -1,7 +1,3 @@
-# ==============================================================================
-# HEALTHCARE RAG SYSTEM - PYTHON DEPENDENCIES
-# ==============================================================================
-
 # Web Framework
 fastapi
 uvicorn[standard]
@@ -46,6 +42,7 @@ ragas
 
 # Security
 passlib[bcrypt]
+bcrypt==4.0.1
 python-jose[cryptography]
 
 # Utilities
