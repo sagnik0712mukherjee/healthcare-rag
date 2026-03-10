@@ -49,7 +49,16 @@ st.set_page_config(
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded",
+    menu_items={},
 )
+
+# Force dark theme
+st.markdown("""
+<style>
+    [data-testid="stAppViewContainer"] { background-color: #0d1b2a; }
+    [data-testid="stHeader"] { background-color: #0d1b2a; }
+</style>
+""", unsafe_allow_html=True)
 
 # ==============================================================================
 # GLOBAL STYLES
