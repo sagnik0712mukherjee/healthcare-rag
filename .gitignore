@@ -1,6 +1,22 @@
+# Raw dataset files (large, available from Zenodo — do not commit)
 data/raw/images/
+data/raw/cases.parquet
+data/raw/captions_and_labels.csv
+data/raw/metadata.parquet
 data/processed/
+
+# NOTE: vectorstore/faiss_index/ is intentionally kept in Git LFS
+# Railway downloads it via media.githubusercontent.com in start.sh
+
+# App database (local only)
 *.db
+
+# Secrets
 .env
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.venv/
+venv/
