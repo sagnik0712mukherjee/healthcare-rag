@@ -111,7 +111,8 @@ def retrieve(
     pinned_chunk_ids: list = None,
 ) -> list[dict]:
     """
-    Finds the most relevant chunks for a user query using FAISS vector search.
+    Finds the most relevant chunks for a user query using FAISS vector search,
+    and intelligently reuses pinned chunks only if they are still relevant.
 
     Purpose:
         This is the core retrieval function. It converts the user's query
@@ -258,37 +259,68 @@ def retrieve(
         if len(results) >= top_k:
             break
 
-    # If pinned_chunk_ids were provided (Turn 2+), find those chunks in metadata
-    # and prepend them so the LLM always sees the Turn 1 context first.
+    # If pinned_chunk_ids were provided (Turn 2+), evaluate if they are still relevant
+    # to the NEW query. If the user changed topics, the similarity will be low,
+    # and we should discard the pinned chunks to avoid polluting the context.
     if pinned_chunk_ids:
         pinned_results = []
         existing_ids = {r["chunk_id"] for r in results}
+
+        # Threshold for keeping a pinned chunk. Cosine similarity ranges from -1 to 1.
+        # 0.35 is a reasonable threshold to discard completely unrelated topics.
+        RELEVANCE_THRESHOLD = 0.35
+
         for i, chunk in enumerate(_chunk_metadata):
-            if (
-                chunk.get("chunk_id") in pinned_chunk_ids
-                and chunk.get("chunk_id") not in existing_ids
-            ):
-                pinned_results.append(
-                    {
-                        "chunk_text": chunk.get("chunk_text", ""),
-                        "similarity_score": 1.0,  # treat pinned as maximally relevant
-                        "source": chunk.get("source", "unknown"),
-                        "chunk_id": chunk.get("chunk_id", ""),
-                        "case_id": chunk.get("case_id", None),
-                        "patient_age": chunk.get("patient_age", None),
-                        "patient_gender": chunk.get("patient_gender", None),
-                        "chunk_index": chunk.get("chunk_index", 0),
-                        "total_chunks": chunk.get("total_chunks", 1),
-                        "image_id": chunk.get("image_id", None),
-                        "image_type": chunk.get("image_type", None),
-                        "image_subtype": chunk.get("image_subtype", None),
-                        "labels": chunk.get("labels", []),
-                        "file_name": chunk.get("file_name", None),
-                    }
-                )
-        # Pinned chunks go first, then fresh retrieval fills remaining slots
+            chunk_id = chunk.get("chunk_id")
+            if chunk_id in pinned_chunk_ids and chunk_id not in existing_ids:
+                # To score the pinned chunk against the NEW query, we need its vector.
+                # Since we don't store vectors in metadata JSON to save RAM, we can
+                # fetch it from the FAISS index itself using the position (i).
+                try:
+                    # faiss.reconstruct returns the 1D vector (1536,) for position i
+                    chunk_vector = _faiss_index.reconstruct(i)
+
+                    # Compute cosine similarity between new query and old pinned chunk
+                    # Both vectors are already L2-normalized, so dot product = cosine similarity
+                    similarity = float(np.dot(query_vector, chunk_vector))
+
+                    if similarity >= RELEVANCE_THRESHOLD:
+                        pinned_results.append(
+                            {
+                                "chunk_text": chunk.get("chunk_text", ""),
+                                # Keep the actual similarity score so we know it's a pin, but still rank correctly
+                                "similarity_score": similarity,
+                                "source": chunk.get("source", "unknown"),
+                                "chunk_id": chunk_id,
+                                "case_id": chunk.get("case_id", None),
+                                "patient_age": chunk.get("patient_age", None),
+                                "patient_gender": chunk.get("patient_gender", None),
+                                "chunk_index": chunk.get("chunk_index", 0),
+                                "total_chunks": chunk.get("total_chunks", 1),
+                                "image_id": chunk.get("image_id", None),
+                                "image_type": chunk.get("image_type", None),
+                                "image_subtype": chunk.get("image_subtype", None),
+                                "labels": chunk.get("labels", []),
+                                "file_name": chunk.get("file_name", None),
+                                "is_pinned": True,  # Flag for debugging
+                            }
+                        )
+                    else:
+                        logger.info(
+                            f"Discarded pinned chunk {chunk_id[:8]} (relevance {similarity:.2f} < {RELEVANCE_THRESHOLD})"
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to score pinned chunk {chunk_id}: {e}")
+
+        # Sort pinned chunks by their relevance to the new query
+        pinned_results.sort(key=lambda x: x["similarity_score"], reverse=True)
+
+        # Merge: relevant pinned chunks first, then fresh retrieval
         results = (pinned_results + results)[:top_k]
-        logger.info(f"Injected {len(pinned_results)} pinned chunks from Turn 1.")
+        logger.info(
+            f"Kept {len(pinned_results)} of {len(pinned_chunk_ids)} pinned chunks "
+            f"for session continuation."
+        )
 
     logger.info(
         f"Retrieved {len(results)} chunks "
