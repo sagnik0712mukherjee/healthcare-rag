@@ -82,7 +82,7 @@ from src.monitoring.token_tracker import (
     update_user_token_limit,
 )
 from src.rag.pipeline import RAGRequest, run_rag_pipeline
-from src.rag.retriever import _faiss_index
+from src.rag import retriever as _retriever_module
 from src.utils.helpers import is_valid_uuid, sanitize_user_input
 
 # ------------------------------------------------------------------------------
@@ -229,9 +229,11 @@ def health_check(db: Session = Depends(get_db)):
     # Check database connection
     db_status = "connected" if check_db_connection(db) else "error: unreachable"
 
-    # Check FAISS index
-    if _faiss_index is not None:
-        faiss_status = f"loaded ({_faiss_index.ntotal:,} vectors)"
+    # Check FAISS index — read through module to get the live value,
+    # not the stale None that was captured at import time
+    _live_index = _retriever_module._faiss_index
+    if _live_index is not None:
+        faiss_status = f"loaded ({_live_index.ntotal:,} vectors)"
     else:
         faiss_status = "not loaded (run ingestion pipeline first)"
 
