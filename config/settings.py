@@ -193,7 +193,7 @@ class Settings(BaseSettings):
     # HUMAN-IN-THE-LOOP REVIEW CONFIGURATION
     # --------------------------------------------------------------------------
 
-    human_review_risk_threshold: float = 0.7
+    human_review_risk_threshold: float = 0.01
     # A risk score between 0.0 and 1.0.
     # Responses with a computed risk score above this value are flagged
     # for review by a healthcare professional before being returned to the user.
