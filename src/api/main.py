@@ -182,8 +182,8 @@ async def lifespan(app: FastAPI):
         if admin_exists is None:
             logger.warning("No admin user found. Creating default admin account...")
             default_admin = User(
-                email="admin@healthcare-rag.com",
-                hashed_password=_pwd_context.hash("ChangeMe123!"),
+                email=settings.admin_email,
+                hashed_password=_pwd_context.hash(settings.admin_password),
                 full_name="System Administrator",
                 role=UserRole.admin,
                 token_limit=10_000_000,  # Admins get a large limit

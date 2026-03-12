@@ -224,6 +224,12 @@ class Settings(BaseSettings):
     # Use DEBUG during development to see all details.
     # Use INFO or WARNING in production.
 
+    admin_email: str = "admin@healthcare-rag.com"
+    # Email address of the admin user.
+
+    admin_password: str = "ChangeMe123!"
+    # Password of the admin user.
+
     # --------------------------------------------------------------------------
     # COMPUTED PROPERTIES
     # These are not read from .env - they are calculated from other settings.
